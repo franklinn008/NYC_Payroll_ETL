@@ -9,15 +9,15 @@ import os
 # Add etl package to the Python path
 sys.path.insert(0, '/home/airflow/gcs/dags')
 
-from etl.extraction import extract_and_upload_data
-from transformation import transform_data
-from etl.loading import load_data_to_bigquery
+from etl.extraction import process_and_upload_data
+from etl.transformation import transform_data
+from etl.loading import load_data_to_databases
 
 # Default arguments
 default_args = {
     'owner': 'dartech',
     'depends_on_past': False,
-    'start_date': datetime(2024, 7, 30),
+    'start_date': datetime(2024, 8, 18),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': None
@@ -36,8 +36,8 @@ dag = DAG(
 # Define the tasks
 extract_task = PythonOperator(
     task_id='fetch_data',
-    python_callable=extract_and_upload_data,
-    op_args=['/home/airflow/gcs/dags/service_account_key.json'],
+    python_callable=process_and_upload_data,
+    op_args=['/home/airflow/gcs/dags/service_account_key.json', '/home/airflow/gcs/dags/rawdata'],
     dag=dag,
 )
 
@@ -50,7 +50,7 @@ transform_task = PythonOperator(
 
 load_task = PythonOperator(
     task_id='load_data',
-    python_callable=load_data_to_bigquery,
+    python_callable=load_data_to_databases,
     op_args=['/home/airflow/gcs/dags/service_account_key.json'],
     dag=dag,
 )

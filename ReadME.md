@@ -1,77 +1,117 @@
-This README provides an overview of the ETL pipeline for processing NYC Payroll data. The pipeline is divided into three main stages: Extraction, Transformation, and Loading, each represented by a Python script (extraction.py, transformation.py, loading.py). Below is a detailed description of each stage and what was implemented.
+NYC Payroll Data ETL Project
+Project Description
+This project is designed to extract, transform, and load (ETL) NYC payroll data into a data warehouse for analysis. The data pipeline processes raw CSV files stored in Google Cloud Storage (GCS), performs necessary transformations, and loads the cleaned and structured data into a data warehouse. The processed data is structured into dimensional tables for easy querying and reporting, supporting key business questions about payroll expenditures across different agencies and titles.
 
-1. extraction.py
-Purpose:
-The extraction.py script is responsible for extracting raw data from local CSV files, performing initial preprocessing, and uploading the processed files to a Google Cloud Storage (GCS) bucket.
+Tools Used
+Python: The primary programming language used for data processing.
+Pandas: A Python library used for data manipulation and analysis.
+Google Cloud Storage (GCS): Used for storing the raw and transformed CSV files.
+Google Cloud SDK: To interact with GCS and other Google Cloud services.
+SQLAlchemy: Used to interact with the SQL databases for loading the data.
+PostgreSQL / Snowflake / BigQuery: The data warehouse solutions used for storing the transformed data.
+Stored Procedures: For moving data from the STG schema to the EDW schema.
 
-Key Operations:
-Loading CSV Files:
 
-Uses the load_csv_files function to load all CSV files that match the specified file pattern (e.g., EmpMaster*.csv, nycpayroll_*.csv).
-Concatenates multiple CSV files into a single DataFrame for easier processing.
-Initial Preprocessing:
+Warehouse Schema
+The data warehouse schema is designed as a star schema, consisting of the following tables:
 
-Extracts key fields (EmployeeID, AgencyStartDate, WorkLocationBorough) from the payroll data.
-Determines the earliest AgencyStartDate for each EmployeeID and associates the corresponding WorkLocationBorough.
-Merges the employee data with agency and title information to enrich the employee data.
-Uploading to GCS:
+Fact Table
 
-The processed DataFrames (DimEmployee, FactPayroll_Table, DimAgency, DimTitle) are saved as CSV files.
-These CSV files are then uploaded to a specified GCS bucket.
-Usage:
-python
-Copy code
-# Example of how to call the function
-extract_and_upload_data("path/to/your/service_account_key.json", base_path="/mnt/data")
-2. transformation.py
-Purpose:
-The transformation.py script is responsible for performing further data transformation on the files uploaded to GCS during the extraction phase. It ensures the data is clean, properly formatted, and ready for loading into BigQuery.
+FactPayroll_Table
+EmployeeID (Foreign Key from DimEmployee)
+AgencyID (Foreign Key from DimAgency)
+TitleCode (Foreign Key from DimTitle)
+FiscalYear
+PayrollNumber
+BaseSalary
+RegularHours
+RegularGrossPaid
+OTHours
+TotalOTPaid
+TotalOtherPay
 
-Key Operations:
-Downloading from GCS:
+Dimension Tables
+DimEmployee
+EmployeeID (Primary Key)
+LastName
+FirstName
+AgencyStartDate
+WorkLocationBorough
 
-Downloads the raw CSV files from GCS that were uploaded during the extraction phase.
-Data Transformation:
+DimAgency
+AgencyID (Primary Key)
+AgencyName
 
-Datetime Conversion: Converts date fields like AgencyStartDate and PayPeriod to proper datetime formats.
-Dropping Duplicates: Ensures no duplicate records exist in key tables.
-Additional Transformations: Other transformations specific to payroll data, such as extracting fiscal years or handling missing values, are performed.
-Uploading Transformed Data to GCS:
+DimTitle
+TitleCode (Primary Key)
+TitleDescription
 
-After transformation, the cleaned DataFrames are uploaded back to GCS in a transformedfiles/ directory for subsequent loading into BigQuery.
-Usage:
-python
-Copy code
-# Example of how to call the function
-transform_data("path/to/your/service_account_key.json")
-3. loading.py
-Purpose:
-The loading.py script handles loading the transformed CSV files from GCS into Google BigQuery. This is the final step in the ETL pipeline.
+Aggregate Table
+PayrollAggregate
+AgencyID
+TitleCode
+TotalBaseSalary
+TotalOTHours
+TotalOTPaid
+TotalOtherPay
 
-Key Operations:
-Loading to BigQuery:
+ETL Process Overview
 
-Uses the load_csv_to_bigquery function to load each transformed CSV file into a corresponding BigQuery table.
-The autodetect=True option in LoadJobConfig allows BigQuery to automatically infer the schema from the CSV files.
-Configuration:
+1. Data Extraction
+Raw CSV files (EmpMaster.csv, Payroll.csv, AgencyMaster.csv, TitleMaster.csv) are downloaded from a GCS bucket.
 
-The script is set up to load multiple files into different tables within the same BigQuery dataset.
-Usage:
-python
-Copy code
-# Example of how to call the function
-load_data_to_bigquery("path/to/your/service_account_key.json")
-Airflow DAG (nyc_payroll_etl_dag)
-An Airflow DAG is used to orchestrate the ETL process. The DAG consists of three tasks:
+2. Data Transformation
+Dimensional Tables: Extract relevant data from the Payroll.csv to create DimEmployee, DimAgency, and DimTitle.
+Fact Table: Extract and format the payroll data to create the FactPayroll_Table, ensuring that the necessary foreign keys and metrics are included.
+Aggregate Table: Aggregate payroll data by AgencyID and TitleCode to generate total payroll statistics like TotalBaseSalary, TotalOTHours, TotalOTPaid, and TotalOtherPay.
 
-Extract Data: Calls the extract_and_upload_data function from extraction.py.
-Transform Data: Calls the transform_data function from transformation.py.
-Load Data: Calls the load_data_to_bigquery function from loading.py.
-The tasks are executed in sequence, ensuring that data flows smoothly from extraction to transformation and finally to loading.
+3. Data Loading
+The transformed data is saved to new CSV files in a local directory (cleandata).
+These CSV files are uploaded back to GCS in the transformedfiles/ directory.
+The data is then loaded into the respective tables in the STG schema of the data warehouse (e.g., BigQuery, Snowflake, PostgreSQL).
 
-python
-Copy code
-# DAG Task Dependencies
-extract_task >> transform_task >> load_task
-Summary
-This ETL pipeline automates the process of extracting, transforming, and loading NYC Payroll data into Google BigQuery. Each stage of the process is modularized into distinct Python scripts for easy maintenance and scalability. The Airflow DAG orchestrates the entire workflow, ensuring that data is processed in the correct sequence and is consistently available for analysis in BigQuery.
+4. Data Migration to EDW
+Once data is loaded into the STG schema, a stored procedure is executed to transfer and aggregate data into the EDW schema.
+This process ensures that the data warehouse is optimized for querying and reporting.
+
+5. Clean-Up
+Temporary files generated during the process are deleted to free up resources.
+
+6. Execution
+The entire ETL process can be executed by running the transform.py script, which is modular and handles both transformation and loading.
+
+Step-by-Step Execution Guide
+Setup:
+Install Dependencies:
+Ensure you have Python installed along with the required libraries (pandas, google-cloud-storage, sqlalchemy).
+
+Authenticate Google Cloud SDK:
+Authenticate your Google Cloud SDK with the service account key JSON file.
+Configure:
+
+Update GCS Bucket:
+Update the bucket_name in the transform_data() function to point to your GCS bucket.
+
+Provide Service Account Key:
+Provide the path to your Google Cloud service account key in the script.
+
+Run the Script:
+Execute the ETL Process:
+Run the transform.py script using a Python environment. This will process the raw data, perform the transformations, save the outputs, and upload them to GCS.
+
+Load Data to Data Warehouse:
+Run loading.py:
+This script will load the transformed CSV files from GCS to the STG schema of the respective data warehouses (BigQuery, Snowflake, PostgreSQL).
+Execute Stored Procedure:
+
+Automated Execution:
+The loading.py script automatically calls a stored procedure (STG.InsertIntoEDW) to migrate data from the STG schema to the EDW schema.
+Query and Analyze:
+
+Start Querying:
+Once the data is loaded into the EDW schema, you can start querying the data using SQL to answer key business questions regarding payroll distribution across agencies and titles.
+
+Conclusion
+This project automates the ETL process for NYC payroll data, making it easy to maintain and analyze payroll information in a structured manner. With the modularity of the Python scripts, you can easily adapt the process for other datasets or extend its capabilities by adding more transformations and aggregations.
+
+This README file provides sufficient guidance and documentation for anyone using or extending the ETL pipeline for the NYC payroll data project

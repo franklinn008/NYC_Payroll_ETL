@@ -1,0 +1,9 @@
+marshmallow-sqlalchemy==0.28.2 
+sqlalchemy==1.4.52
+pandas==2.2.2
+requests
+python-dotenv
+google-cloud-storage
+google-cloud-bigquery
+glob2
+snowflake-sqlalchemy
