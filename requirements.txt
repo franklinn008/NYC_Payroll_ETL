@@ -7,3 +7,6 @@ google-cloud-storage
 google-cloud-bigquery
 glob2
 snowflake-sqlalchemy
+psycopg2 #for airflow
+snowflake-connector-python #for airflow
+apache-airflow-providers-snowflake #for airflow
